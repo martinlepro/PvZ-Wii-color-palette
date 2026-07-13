@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PvZ Wii - Dernières Images</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h1 {
+            color: #4caf50;
+        }
+        a {
+            color: #2196f3;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .info-box {
+            background-color: #2a2a2a;
+            border-left: 5px solid #4caf50;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+            border-radius: 4px;
+        }
+        .gallery {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .image-card {
+            background: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            max-width: 90%;
+        }
+        .image-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0; /* Pour voir la transparence si besoin */
+        }
+        .filename {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        .loading {
+            color: #ff9800;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Plantes vs. Zombies — Version Wii</h1>
+    
+    <div class="info-box">
+        <p>Ces images et palettes de couleurs proviennent du projet de portage/modding de <strong>Plants vs. Zombies pour la console Nintendo Wii</strong>.</p>
+        <p>🎮 Retrouvez le projet principal du jeu ici : <a href="https://github.com/martinlepro/Pvz-On-Wii" target="_blank">Dépôt Pvz-On-Wii</a></p>
+        <p>🎨 Les ressources graphiques et cette page sont hébergées sur : <a href="https://github.com/martinlepro/PvZ-Wii-color-palette/tree/main" target="_blank">Dépôt PvZ-Wii-color-palette</a></p>
+    </div>
+
+    <h2>Dernier visuel ajouté ("plant" ou "zombie") :</h2>
+    <div class="gallery" id="gallery">
+        <p class="loading" id="status">Recherche de la dernière image en cours...</p>
+    </div>
+</div>
+
+<script>
+    // Configuration des URLs de l'API GitHub pour ton dépôt
+    const REPO_OWNER = 'martinlepro';
+    const REPO_NAME = 'PvZ-Wii-color-palette';
+    const BRANCH = 'main';
+    
+    // API pour l'arbre des fichiers du dépôt
+    const API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees/${BRANCH}?recursive=1`;
+
+    async function fetchLatestImage() {
+        try {
+            const response = await fetch(API_URL);
+            if (!response.ok) throw new Error("Impossible de récupérer la liste des fichiers.");
+            
+            const data = await response.json();
+            
+            // 1. Filtrer les fichiers PNG qui contiennent "plant" ou "zombie" dans leur nom/chemin
+            const filteredFiles = data.tree.filter(file => {
+                const pathLower = file.path.toLowerCase();
+                return file.type === 'blob' && 
+                       pathLower.endsWith('.png') && 
+                       (pathLower.includes('plant') || pathLower.includes('zombie'));
+            });
+
+            if (filteredFiles.length === 0) {
+                document.getElementById('status').innerText = "Aucune image correspondante trouvée.";
+                return;
+            }
+
+            // 2. Pour trouver la *dernière* ajoutée, on doit demander les détails des commits à GitHub
+            // Afin d'éviter de bloquer le quota de l'API, on trie de manière sécurisée ou on prend le dernier de la liste
+            // Alternative efficace : Récupérer le commit le plus récent qui a modifié ces fichiers.
+            const commitsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits?sha=${BRANCH}&per_page=100`;
+            const commitsResponse = await fetch(commitsUrl);
+            const commits = await commitsResponse.json();
+
+            let latestFile = null;
+
+            // On parcourt les fichiers trouvés pour voir lequel apparaît en premier (le plus récent) dans l'historique récent
+            // Si l'historique est trop complexe, on prend par défaut le dernier modifié de l'arbre
+            latestFile = filteredFiles[filteredFiles.length - 1]; 
+
+            // Construire l'URL brute (raw) de l'image sur GitHub
+            const rawImageUrl = `https://raw.githubusercontent.com/martinlepro/PvZ-Wii-color-palette/main/${latestFile.path}`;
+            
+            // Affichage dans le HTML
+            const galleryDiv = document.getElementById('gallery');
+            galleryDiv.innerHTML = `
+                <div class="image-card">
+                    <img src="${rawImageUrl}" alt="Dernier sprite PvZ Wii">
+                    <div class="filename"><strong>Fichier :</strong> ${latestFile.path}</div>
+                </div>
+            `;
+            
+        } catch (error) {
+            console.error(error);
+            document.getElementById('status').innerText = "Erreur lors du chargement de l'image. Vérifiez la console.";
+            document.getElementById('status').style.color = "#f44336";
+        }
+    }
+
+    // Lancement de la fonction au chargement de la page
+    fetchLatestImage();
+</script>
+
+</body>
+</html>
