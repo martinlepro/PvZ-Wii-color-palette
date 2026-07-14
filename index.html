@@ -219,6 +219,7 @@
     const REPO_NAME = 'PvZ-Wii-color-palette';
     const BRANCH = 'main';
     const API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees/${BRANCH}?recursive=1`;
+    const LATEST_COMMIT_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits/${BRANCH}`;
 
     const galleryState = {
         plants: false,
@@ -274,9 +275,29 @@
 
     async function fetchImages() {
         try {
-            const response = await fetch(API_URL);
+            // On force no-store pour ne jamais recevoir une réponse mise en cache par le navigateur
+            const treeRequest = fetch(API_URL, { cache: 'no-store' });
+            const commitRequest = fetch(LATEST_COMMIT_URL, { cache: 'no-store' }).catch(() => null);
+
+            const [response, commitResponse] = await Promise.all([treeRequest, commitRequest]);
             if (!response.ok) throw new Error();
             const data = await response.json();
+
+            // Fichiers réellement touchés par le tout dernier commit du dépôt.
+            // C'est ça qui définit le "vrai" dernier ajout, pas l'ordre alphabétique du tree.
+            let recentPaths = new Set();
+            if (commitResponse && commitResponse.ok) {
+                try {
+                    const commitData = await commitResponse.json();
+                    if (Array.isArray(commitData.files)) {
+                        commitData.files
+                            .filter(f => f.status !== 'removed')
+                            .forEach(f => recentPaths.add(f.filename));
+                    }
+                } catch (e) {
+                    // Si l'appel commit échoue/rate-limit, on continue simplement sans info de récence
+                }
+            }
 
             const allFiles = data.tree.filter(file => file.type === 'blob' && file.path.toLowerCase().endsWith('.png'));
 
@@ -292,8 +313,8 @@
                 }
             });
 
-            renderColumn(plants, 'plants-latest', 'plants-others', 'plants-status', 'btn-plants');
-            renderColumn(zombies, 'zombies-latest', 'zombies-others', 'zombies-status', 'btn-zombies');
+            renderColumn(plants, recentPaths, 'plants-latest', 'plants-others', 'plants-status', 'btn-plants');
+            renderColumn(zombies, recentPaths, 'zombies-latest', 'zombies-others', 'zombies-status', 'btn-zombies');
 
         } catch (error) {
             document.getElementById('plants-status').innerText = translations[lang].error;
@@ -301,7 +322,7 @@
         }
     }
 
-    function renderColumn(filesList, latestContainerId, othersContainerId, statusId, btnId) {
+    function renderColumn(filesList, recentPaths, latestContainerId, othersContainerId, statusId, btnId) {
         const latestContainer = document.getElementById(latestContainerId);
         const othersContainer = document.getElementById(othersContainerId);
         const btn = document.getElementById(btnId);
@@ -312,8 +333,17 @@
             return;
         }
 
-        const sortedFiles = [...filesList].reverse();
-        const firstFile = sortedFiles[0];
+        // Priorité aux fichiers réellement présents dans le dernier commit (les vrais nouveaux ajouts).
+        // Si aucun fichier de cette catégorie n'a été touché récemment, on retombe sur l'ancien
+        // comportement (ordre inverse du tree) pour ne jamais rien casser.
+        const recentInCategory = filesList.filter(f => recentPaths.has(f.path));
+        const rest = filesList.filter(f => !recentPaths.has(f.path));
+
+        const orderedFiles = recentInCategory.length > 0
+            ? [...recentInCategory, ...rest]
+            : [...filesList].reverse();
+
+        const firstFile = orderedFiles[0];
         const firstRawUrl = `https://raw.githubusercontent.com/martinlepro/PvZ-Wii-color-palette/main/${firstFile.path}`;
         
         latestContainer.innerHTML = `
@@ -324,10 +354,10 @@
             </div>
         `;
 
-        if (sortedFiles.length > 1) {
+        if (orderedFiles.length > 1) {
             let othersHtml = '';
-            for (let i = 1; i < sortedFiles.length; i++) {
-                const file = sortedFiles[i];
+            for (let i = 1; i < orderedFiles.length; i++) {
+                const file = orderedFiles[i];
                 const rawUrl = `https://raw.githubusercontent.com/martinlepro/PvZ-Wii-color-palette/main/${file.path}`;
                 othersHtml += `
                     <div class="image-card">
