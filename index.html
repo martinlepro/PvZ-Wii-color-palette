@@ -21,6 +21,31 @@
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
+        
+        /* Zone de traduction Google */
+        #translate-wrapper {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 15px;
+        }
+        .goog-te-gadget-simple {
+            background-color: #2a2a2a !important;
+            border: 1px solid #444 !important;
+            padding: 6px 10px !important;
+            border-radius: 4px !important;
+            font-family: inherit !important;
+        }
+        .goog-te-gadget-simple a {
+            color: #e0e0e0 !important;
+            font-weight: normal !important;
+        }
+        .goog-te-banner-frame {
+            display: none !important; /* Cache la barre Google du haut */
+        }
+        body {
+            top: 0px !important; /* Corrige le décalage causé par la barre Google */
+        }
+
         h1 {
             color: #4caf50;
             margin-bottom: 10px;
@@ -119,7 +144,7 @@
             padding: 20px;
         }
 
-        /* Conteneur pour masquer/afficher les anciennes images */
+        /* Masquage/Affichage des anciennes images */
         .hidden-images {
             display: none;
         }
@@ -127,7 +152,7 @@
             display: block;
         }
 
-        /* Bouton "Voir tout" */
+        /* Boutons */
         .toggle-btn {
             background-color: #333;
             color: #fff;
@@ -136,7 +161,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
-            margin-top: auto; /* Aligne le bouton en bas de la colonne */
+            margin-top: auto;
             transition: background 0.2s;
         }
         .toggle-btn:hover {
@@ -147,6 +172,10 @@
 <body>
 
 <div class="container">
+    <div id="translate-wrapper">
+        <div id="google_translate_element"></div>
+    </div>
+
     <h1 id="main-title">Plantes vs. Zombies — Version Wii</h1>
     
     <div class="info-box" id="info-text">
@@ -173,6 +202,17 @@
     </div>
 </div>
 
+<script type="text/javascript">
+    function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+            pageLanguage: 'fr',
+            layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+            autoDisplay: false
+        }, 'google_translate_element');
+    }
+</script>
+<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
 <script>
     // Configuration GitHub
     const REPO_OWNER = 'martinlepro';
@@ -180,13 +220,12 @@
     const BRANCH = 'main';
     const API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees/${BRANCH}?recursive=1`;
 
-    // Stockage de l'état des galeries (ouvertes ou fermées)
     const galleryState = {
         plants: false,
         zombies: false
     };
 
-    // Traductions automatique (Français / Anglais par défaut)
+    // Traductions de secours (Français/Anglais de base avant l'utilisation du sélecteur)
     const translations = {
         fr: {
             title: "Plantes vs. Zombies — Version Wii",
@@ -222,11 +261,10 @@
         }
     };
 
-    // Détection de la langue du navigateur (FR ou EN)
     const userLang = navigator.language || navigator.userLanguage;
     const lang = userLang.startsWith('fr') ? 'fr' : 'en';
 
-    // Appliquer les traductions initiales
+    // Application des textes
     document.getElementById('main-title').innerText = translations[lang].title;
     document.getElementById('info-text').innerHTML = translations[lang].info;
     document.getElementById('title-plants').innerText = translations[lang].plants;
@@ -240,13 +278,11 @@
             if (!response.ok) throw new Error();
             const data = await response.json();
 
-            // Filtrer les fichiers PNG
             const allFiles = data.tree.filter(file => file.type === 'blob' && file.path.toLowerCase().endsWith('.png'));
 
             const plants = [];
             const zombies = [];
 
-            // Classer les fichiers
             allFiles.forEach(file => {
                 const pathLower = file.path.toLowerCase();
                 if (pathLower.includes('plant')) {
@@ -256,7 +292,6 @@
                 }
             });
 
-            // Afficher les colonnes
             renderColumn(plants, 'plants-latest', 'plants-others', 'plants-status', 'btn-plants');
             renderColumn(zombies, 'zombies-latest', 'zombies-others', 'zombies-status', 'btn-zombies');
 
@@ -277,10 +312,7 @@
             return;
         }
 
-        // On inverse l'ordre pour avoir les plus récents en premier
         const sortedFiles = [...filesList].reverse();
-        
-        // 1. Afficher la toute première (la plus récente)
         const firstFile = sortedFiles[0];
         const firstRawUrl = `https://raw.githubusercontent.com/martinlepro/PvZ-Wii-color-palette/main/${firstFile.path}`;
         
@@ -292,7 +324,6 @@
             </div>
         `;
 
-        // 2. Préparer le reste s'il y en a d'autres
         if (sortedFiles.length > 1) {
             let othersHtml = '';
             for (let i = 1; i < sortedFiles.length; i++) {
@@ -307,15 +338,13 @@
             }
             othersContainer.innerHTML = othersHtml;
             
-            // Rendre le bouton visible
             btn.style.display = 'block';
             btn.innerText = translations[lang].showAll;
         } else {
-            btn.style.display = 'none'; // Pas de bouton nécessaire s'il n'y a qu'une seule image
+            btn.style.display = 'none';
         }
     }
 
-    // Gérer le clic sur les boutons "Voir tout / Afficher moins"
     function toggleGallery(type) {
         const othersContainer = document.getElementById(`${type}-others`);
         const btn = document.getElementById(`btn-${type}`);
@@ -331,7 +360,6 @@
         }
     }
 
-    // Lancement
     fetchImages();
 </script>
 
