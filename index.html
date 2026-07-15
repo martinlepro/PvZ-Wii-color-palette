@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PvZ Wii - Palettes</title>
+    <!-- Chargement de la bibliothèque JSZip pour permettre le téléchargement de toutes les images en un seul ZIP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -45,7 +47,6 @@
         body {
             top: 0px !important; /* Corrige le décalage causé par la barre Google */
         }
-
         h1 {
             color: #4caf50;
             margin-bottom: 10px;
@@ -101,7 +102,6 @@
             color: #e57373;
             border-bottom-color: #f44336;
         }
-
         /* Cartes d'images */
         .image-card {
             background: #252525;
@@ -110,6 +110,9 @@
             border: 1px solid #333;
             margin-bottom: 15px;
             transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .image-card:hover {
             transform: scale(1.02);
@@ -126,6 +129,7 @@
             font-size: 0.8em;
             color: #aaa;
             word-break: break-all;
+            margin-bottom: 8px;
         }
         .badge {
             display: inline-block;
@@ -143,16 +147,62 @@
             font-style: italic;
             padding: 20px;
         }
-
         /* Masquage/Affichage des anciennes images */
         .hidden-images {
             display: none;
+            width: 100%;
         }
         .hidden-images.show {
             display: block;
         }
-
-        /* Boutons */
+        /* Boutons d'action */
+        .btn {
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s, transform 0.1s;
+            font-size: 0.9em;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        /* Bouton Télécharger individuel */
+        .download-btn {
+            background-color: #2196f3;
+            color: white;
+            width: 100%;
+            margin-top: 5px;
+        }
+        .download-btn:hover {
+            background-color: #1e88e5;
+        }
+        /* Bouton "Tout télécharger" */
+        .download-all-btn {
+            background-color: #4caf50;
+            color: white;
+            margin-bottom: 15px;
+            width: 100%;
+            font-size: 0.95em;
+            padding: 10px;
+        }
+        .download-all-btn:hover {
+            background-color: #43a047;
+        }
+        .column-zombies .download-all-btn {
+            background-color: #f44336;
+        }
+        .column-zombies .download-all-btn:hover {
+            background-color: #e53935;
+        }
+        .download-all-btn:disabled {
+            background-color: #555 !important;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        /* Boutons Voir Plus / Voir moins */
         .toggle-btn {
             background-color: #333;
             color: #fff;
@@ -162,6 +212,7 @@
             cursor: pointer;
             font-weight: bold;
             margin-top: auto;
+            width: 100%;
             transition: background 0.2s;
         }
         .toggle-btn:hover {
@@ -170,29 +221,33 @@
     </style>
 </head>
 <body>
-
 <div class="container">
+    <!-- Sélecteur de langue Google -->
     <div id="translate-wrapper">
         <div id="google_translate_element"></div>
     </div>
-
     <h1 id="main-title">Plantes vs. Zombies — Version Wii</h1>
     
     <div class="info-box" id="info-text">
-        </div>
-
+        <!-- Contenu injecté et traduit automatiquement -->
+    </div>
     <div class="columns-container">
+        <!-- Colonne PLANTE -->
         <div class="column column-plants">
             <div class="column-title" id="title-plants">🌱 Plantes</div>
+            <!-- Bouton Tout télécharger pour les plantes -->
+            <button id="btn-download-all-plants" class="btn download-all-btn" onclick="downloadAll('plants')" style="display: none;">Tout télécharger (.zip)</button>
             <div id="plants-latest">
                 <p class="status-message" id="plants-status">Chargement...</p>
             </div>
             <div id="plants-others" class="hidden-images"></div>
             <button id="btn-plants" class="toggle-btn" onclick="toggleGallery('plants')" style="display: none;">Voir tout</button>
         </div>
-
+        <!-- Colonne ZOMBIE -->
         <div class="column column-zombies">
             <div class="column-title" id="title-zombies">🧟 Zombies</div>
+            <!-- Bouton Tout télécharger pour les zombies -->
+            <button id="btn-download-all-zombies" class="btn download-all-btn" onclick="downloadAll('zombies')" style="display: none;">Tout télécharger (.zip)</button>
             <div id="zombies-latest">
                 <p class="status-message" id="zombies-status">Chargement...</p>
             </div>
@@ -201,7 +256,7 @@
         </div>
     </div>
 </div>
-
+<!-- Scripts Google Traduction -->
 <script type="text/javascript">
     function googleTranslateElementInit() {
         new google.translate.TranslateElement({
@@ -212,21 +267,20 @@
     }
 </script>
 <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-
 <script>
     // Configuration GitHub
     const REPO_OWNER = 'martinlepro';
     const REPO_NAME = 'PvZ-Wii-color-palette';
     const BRANCH = 'main';
     const API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees/${BRANCH}?recursive=1`;
-    const LATEST_COMMIT_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits/${BRANCH}`;
-
+    // Listes globales pour stocker les fichiers afin de pouvoir tout télécharger
+    let plantFiles = [];
+    let zombieFiles = [];
     const galleryState = {
         plants: false,
         zombies: false
     };
-
-    // Traductions de secours (Français/Anglais de base avant l'utilisation du sélecteur)
+    // Traductions de secours (Français/Anglais de base)
     const translations = {
         fr: {
             title: "Plantes vs. Zombies — Version Wii",
@@ -242,7 +296,10 @@
             empty: "Aucune image trouvée.",
             error: "Erreur de chargement.",
             showAll: "Voir tout",
-            showLess: "Afficher moins"
+            showLess: "Afficher moins",
+            download: "📥 Télécharger",
+            downloadAll: "📥 Tout télécharger (.zip)",
+            zipping: "⚡ Création du ZIP..."
         },
         en: {
             title: "Plants vs. Zombies — Wii Version",
@@ -258,111 +315,139 @@
             empty: "No images found.",
             error: "Failed to load.",
             showAll: "Show all",
-            showLess: "Show less"
+            showLess: "Show less",
+            download: "📥 Download",
+            downloadAll: "📥 Download All (.zip)",
+            zipping: "⚡ Creating ZIP..."
         }
     };
-
     const userLang = navigator.language || navigator.userLanguage;
     const lang = userLang.startsWith('fr') ? 'fr' : 'en';
-
-    // Application des textes
+    // Application des textes initiaux
     document.getElementById('main-title').innerText = translations[lang].title;
     document.getElementById('info-text').innerHTML = translations[lang].info;
     document.getElementById('title-plants').innerText = translations[lang].plants;
     document.getElementById('title-zombies').innerText = translations[lang].zombies;
     document.getElementById('plants-status').innerText = translations[lang].loading;
     document.getElementById('zombies-status').innerText = translations[lang].loading;
-
+    // Fonction pour télécharger un fichier individuel proprement (force le téléchargement au lieu d'ouvrir dans un onglet)
+    async function downloadSingle(url, filename) {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            // Repli si le fetch échoue (ouvre dans un nouvel onglet)
+            window.open(url, '_blank');
+        }
+    }
+    // Fonction pour télécharger toutes les images d'une colonne sous forme de fichier ZIP
+    async function downloadAll(type) {
+        const filesList = type === 'plants' ? plantFiles : zombieFiles;
+        const btn = document.getElementById(`btn-download-all-${type}`);
+        
+        if (filesList.length === 0) return;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = translations[lang].zipping;
+        btn.disabled = true;
+        try {
+            const zip = new JSZip();
+            const imgFolder = zip.folder(type);
+            // Téléchargement asynchrone en parallèle de toutes les images
+            const promises = filesList.map(async (file) => {
+                const filename = file.path.split('/').pop();
+                const rawUrl = `https://raw.githubusercontent.com/martinlepro/PvZ-Wii-color-palette/main/${file.path}`;
+                const response = await fetch(rawUrl);
+                const blob = await response.blob();
+                imgFolder.file(filename, blob);
+            });
+            await Promise.all(promises);
+            // Générer le ZIP et déclencher le téléchargement
+            const content = await zip.generateAsync({ type: "blob" });
+            const blobUrl = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `pvz_wii_${type}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            alert("Erreur lors de la création du fichier ZIP.");
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
     async function fetchImages() {
         try {
-            // On force no-store pour ne jamais recevoir une réponse mise en cache par le navigateur
-            const treeRequest = fetch(API_URL, { cache: 'no-store' });
-            const commitRequest = fetch(LATEST_COMMIT_URL, { cache: 'no-store' }).catch(() => null);
-
-            const [response, commitResponse] = await Promise.all([treeRequest, commitRequest]);
+            const response = await fetch(API_URL);
             if (!response.ok) throw new Error();
             const data = await response.json();
-
-            // Fichiers réellement touchés par le tout dernier commit du dépôt.
-            // C'est ça qui définit le "vrai" dernier ajout, pas l'ordre alphabétique du tree.
-            let recentPaths = new Set();
-            if (commitResponse && commitResponse.ok) {
-                try {
-                    const commitData = await commitResponse.json();
-                    if (Array.isArray(commitData.files)) {
-                        commitData.files
-                            .filter(f => f.status !== 'removed')
-                            .forEach(f => recentPaths.add(f.filename));
-                    }
-                } catch (e) {
-                    // Si l'appel commit échoue/rate-limit, on continue simplement sans info de récence
-                }
-            }
-
             const allFiles = data.tree.filter(file => file.type === 'blob' && file.path.toLowerCase().endsWith('.png'));
-
-            const plants = [];
-            const zombies = [];
-
+            // Classer les fichiers dans nos listes globales
             allFiles.forEach(file => {
                 const pathLower = file.path.toLowerCase();
                 if (pathLower.includes('plant')) {
-                    plants.push(file);
+                    plantFiles.push(file);
                 } else if (pathLower.includes('zombie')) {
-                    zombies.push(file);
+                    zombieFiles.push(file);
                 }
             });
-
-            renderColumn(plants, recentPaths, 'plants-latest', 'plants-others', 'plants-status', 'btn-plants');
-            renderColumn(zombies, recentPaths, 'zombies-latest', 'zombies-others', 'zombies-status', 'btn-zombies');
-
+            // Gérer l'affichage des colonnes
+            renderColumn(plantFiles, 'plants-latest', 'plants-others', 'plants-status', 'btn-plants', 'btn-download-all-plants');
+            renderColumn(zombieFiles, 'zombies-latest', 'zombies-others', 'zombies-status', 'btn-zombies', 'btn-download-all-zombies');
         } catch (error) {
             document.getElementById('plants-status').innerText = translations[lang].error;
             document.getElementById('zombies-status').innerText = translations[lang].error;
         }
     }
-
-    function renderColumn(filesList, recentPaths, latestContainerId, othersContainerId, statusId, btnId) {
+    function renderColumn(filesList, latestContainerId, othersContainerId, statusId, btnId, downloadAllBtnId) {
         const latestContainer = document.getElementById(latestContainerId);
         const othersContainer = document.getElementById(othersContainerId);
         const btn = document.getElementById(btnId);
+        const downloadAllBtn = document.getElementById(downloadAllBtnId);
         
         if (filesList.length === 0) {
             latestContainer.innerHTML = `<p class="status-message">${translations[lang].empty}</p>`;
             btn.style.display = 'none';
+            downloadAllBtn.style.display = 'none';
             return;
         }
-
-        // Priorité aux fichiers réellement présents dans le dernier commit (les vrais nouveaux ajouts).
-        // Si aucun fichier de cette catégorie n'a été touché récemment, on retombe sur l'ancien
-        // comportement (ordre inverse du tree) pour ne jamais rien casser.
-        const recentInCategory = filesList.filter(f => recentPaths.has(f.path));
-        const rest = filesList.filter(f => !recentPaths.has(f.path));
-
-        const orderedFiles = recentInCategory.length > 0
-            ? [...recentInCategory, ...rest]
-            : [...filesList].reverse();
-
-        const firstFile = orderedFiles[0];
+        // Afficher le bouton "Tout télécharger" s'il y a des fichiers
+        downloadAllBtn.style.display = 'block';
+        downloadAllBtn.innerHTML = translations[lang].downloadAll;
+        const sortedFiles = [...filesList].reverse();
+        const firstFile = sortedFiles[0];
         const firstRawUrl = `https://raw.githubusercontent.com/martinlepro/PvZ-Wii-color-palette/main/${firstFile.path}`;
+        const firstFilename = firstFile.path.split('/').pop();
         
         latestContainer.innerHTML = `
             <div class="image-card">
                 <span class="badge">${translations[lang].latest}</span><br>
                 <img src="${firstRawUrl}" alt="Sprite">
-                <div class="filename">${firstFile.path.split('/').pop()}</div>
+                <div class="filename">${firstFilename}</div>
+                <button class="btn download-btn" onclick="downloadSingle('${firstRawUrl}', '${firstFilename}')">${translations[lang].download}</button>
             </div>
         `;
-
-        if (orderedFiles.length > 1) {
+        if (sortedFiles.length > 1) {
             let othersHtml = '';
-            for (let i = 1; i < orderedFiles.length; i++) {
-                const file = orderedFiles[i];
+            for (let i = 1; i < sortedFiles.length; i++) {
+                const file = sortedFiles[i];
                 const rawUrl = `https://raw.githubusercontent.com/martinlepro/PvZ-Wii-color-palette/main/${file.path}`;
+                const filename = file.path.split('/').pop();
                 othersHtml += `
                     <div class="image-card">
                         <img src="${rawUrl}" alt="Sprite">
-                        <div class="filename">${file.path.split('/').pop()}</div>
+                        <div class="filename">${filename}</div>
+                        <button class="btn download-btn" onclick="downloadSingle('${rawUrl}', '${filename}')">${translations[lang].download}</button>
                     </div>
                 `;
             }
@@ -374,7 +459,6 @@
             btn.style.display = 'none';
         }
     }
-
     function toggleGallery(type) {
         const othersContainer = document.getElementById(`${type}-others`);
         const btn = document.getElementById(`btn-${type}`);
@@ -389,9 +473,7 @@
             btn.innerText = translations[lang].showAll;
         }
     }
-
     fetchImages();
 </script>
-
 </body>
 </html>
